@@ -7,6 +7,11 @@ CHAT_ID = "1886501853"
 
 BASE_URL = "https://mod.gov.ua/news"
 
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                  "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+}
+
 
 def send_message(text):
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
@@ -14,7 +19,7 @@ def send_message(text):
 
 
 def get_today_post():
-    r = requests.get(BASE_URL)
+    r = requests.get(BASE_URL, headers=HEADERS)
     html = r.text
 
     matches = re.findall(r'/news/bojovi-vtrati-voroga[^"]+', html)
@@ -26,7 +31,7 @@ def get_today_post():
 
 
 def parse_losses(url):
-    r = requests.get(url)
+    r = requests.get(url, headers=HEADERS)
     soup = BeautifulSoup(r.text, "html.parser")
 
     text = soup.get_text("\n")
@@ -68,7 +73,7 @@ def main():
         text = parse_losses(latest)
         send_message("🔥 Втрати ворога:\n\n" + text)
     else:
-        send_message("❌ Новину не знайдено")
+        send_message("❌ Новину не знайдено (можливо блок сайту)")
 
 
 if __name__ == "__main__":
