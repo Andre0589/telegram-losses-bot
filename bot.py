@@ -1,7 +1,6 @@
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
-import time
 
 # =================== Налаштування ===================
 TOKEN = "8389604591:AAFv_X9LSdIt7EX-X0CmOiixDYhQN50Tioc"
@@ -72,19 +71,15 @@ def main():
     url = get_today_url()
     print(f"Перевірка новини за URL: {url}")
 
-    while True:
-        if check_news(url):
-            text = parse_losses(url)
-            if text:
-                send_message(f"🔥 Втрати ворога на сьогодні ({datetime.now().strftime('%d.%m.%Y')}):\n\n{text}")
-                print("Новина відправлена у Telegram!")
-                break
-            else:
-                print("Сторінка доступна, але не вдалося розпарсити текст. Чекаємо 15 хв.")
+    if check_news(url):
+        text = parse_losses(url)
+        if text:
+            send_message(f"🔥 Втрати ворога на сьогодні ({datetime.now().strftime('%d.%m.%Y')}):\n\n{text}")
+            print("Новина відправлена у Telegram!")
         else:
-            print("Сьогоднішня новина ще не опублікована. Чекаємо 15 хв.")
-
-        time.sleep(900)  # 15 хвилин
+            print("Сторінка доступна, але не вдалося розпарсити текст.")
+    else:
+        print("Сьогоднішня новина ще не опублікована.")
 
 if __name__ == "__main__":
     main()
