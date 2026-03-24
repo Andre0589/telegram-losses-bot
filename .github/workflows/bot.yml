@@ -6,7 +6,6 @@ on:
   workflow_dispatch:
   schedule:
     - cron: "55 2 * * *"
-  workflow_dispatch:
 
 jobs:
   run-bot:
