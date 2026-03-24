@@ -1,12 +1,12 @@
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime
 
 TOKEN = "8389604591:AAFv_X9LSdIt7EX-X0CmOiixDYhQN50Tioc"
 CHAT_ID = "1886501853"
 
 HEADERS = {
-    "User-Agent": "Mozilla/5.0"
+    "User-Agent": "Mozilla/5.0",
+    "Accept-Language": "uk-UA,uk;q=0.9,en-US;q=0.8,en;q=0.7"
 }
 
 
@@ -15,26 +15,32 @@ def send_message(text):
     requests.post(url, data={"chat_id": CHAT_ID, "text": text})
 
 
-def get_today_url():
-    today = datetime.now()
+def get_latest_losses_url():
+    url = "https://mod.gov.ua/news"
+    r = requests.get(url, headers=HEADERS)
 
-    months = {
-        1: "sichnya", 2: "lyutogo", 3: "bereznya", 4: "kvitnya",
-        5: "travnya", 6: "chervnya", 7: "lypnya", 8: "serpnya",
-        9: "veresnya", 10: "zhovtnya", 11: "lystopada", 12: "hrudnya"
-    }
+    if r.status_code != 200:
+        print("Не вдалося відкрити сторінку новин")
+        return None
 
-    day = today.day
-    month = months[today.month]
-    year = today.year
+    soup = BeautifulSoup(r.text, "html.parser")
 
-    return f"https://mod.gov.ua/news/bojovi-vtrati-voroga-na-{day}-{month}-{year}-roku"
+    for a in soup.find_all("a", href=True):
+        href = a["href"]
+
+        if "vtrati-voroga" in href:
+            print("Знайдено новину:", href)
+            return href
+
+    print("Новину не знайдено на сторінці")
+    return None
 
 
 def parse_losses(url):
     r = requests.get(url, headers=HEADERS)
 
     if r.status_code != 200:
+        print("Помилка відкриття новини")
         return None
 
     soup = BeautifulSoup(r.text, "html.parser")
@@ -46,14 +52,15 @@ def parse_losses(url):
     start = False
 
     for line in lines:
-        if "втратила" in line.lower():
+        if "втрат" in line.lower():
             result.append("📊 " + line)
             start = True
             continue
 
         if start:
-            if "—" in line or "-" in line:
-                clean = line.replace("–", "-").replace("—", "-")
+            clean = line.replace("–", "-").replace("—", "-").replace("−", "-")
+
+            if "-" in clean:
                 parts = clean.split("-")
 
                 if len(parts) >= 2:
@@ -65,20 +72,25 @@ def parse_losses(url):
 
                     result.append(f"• {name} — {value}")
 
-            if len(result) >= 15:
-                break
+        if len(result) >= 15:
+            break
 
     return "\n".join(result)
 
 
 def main():
-    url = get_today_url()
+    url = get_latest_losses_url()
+
+    if not url:
+        send_message("❌ Не вдалося знайти новину про втрати")
+        return
+
     text = parse_losses(url)
 
     if text:
         send_message("🔥 Втрати ворога:\n\n" + text)
     else:
-        send_message("❌ Сьогоднішня новина ще не опублікована")
+        send_message("❌ Не вдалося розпарсити новину")
 
 
 if __name__ == "__main__":
