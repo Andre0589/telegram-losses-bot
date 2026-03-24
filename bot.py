@@ -1,26 +1,43 @@
 import requests
 from bs4 import BeautifulSoup
-import time
+from datetime import datetime
 
 TOKEN = "8389604591:AAFv_X9LSdIt7EX-X0CmOiixDYhQN50Tioc"
 CHAT_ID = "1886501853"
 
 BASE_URL = "https://mod.gov.ua/news"
 
+
 def send_message(text):
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
     requests.post(url, data={"chat_id": CHAT_ID, "text": text})
 
-def get_latest_post():
+
+def get_today_post():
+    today = datetime.now()
+
+    months = {
+        1: "sichnya", 2: "lyutogo", 3: "bereznya", 4: "kvitnya",
+        5: "travnya", 6: "chervnya", 7: "lypnya", 8: "serpnya",
+        9: "veresnya", 10: "zhovtnya", 11: "lystopada", 12: "hrudnya"
+    }
+
+    day = today.day
+    month = months[today.month]
+    year = today.year
+
+    expected = f"bojovi-vtrati-voroga-na-{day}-{month}-{year}"
+
     r = requests.get(BASE_URL)
     soup = BeautifulSoup(r.text, "html.parser")
 
     for link in soup.find_all("a"):
         href = link.get("href", "")
-        if "bojovi-vtrati-voroga" in href:
+        if expected in href:
             return "https://mod.gov.ua" + href
 
     return None
+
 
 def parse_losses(url):
     r = requests.get(url)
@@ -33,6 +50,7 @@ def parse_losses(url):
     start = False
 
     for line in lines:
+        # початок блоку
         if "втратила" in line.lower():
             result.append("📊 " + line)
             start = True
@@ -57,18 +75,14 @@ def parse_losses(url):
 
     return "\n".join(result)
 
+
 def main():
-    last_link = ""
+    latest = get_today_post()
 
-    for i in range(20):  # 5 годин перевірок
-        latest = get_latest_post()
+    if latest:
+        text = parse_losses(latest)
+        send_message("🔥 Втрати ворога:\n\n" + text)
 
-        if latest and latest != last_link:
-            text = parse_losses(latest)
-            send_message("🔥 Втрати ворога:\n\n" + text)
-            break
-
-        time.sleep(900)
 
 if __name__ == "__main__":
     main()
