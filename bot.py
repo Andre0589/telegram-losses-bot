@@ -4,9 +4,9 @@ import time
 from datetime import datetime
 import os
 
-# Ваші дані для доступу
-TOKEN = "8389604591:AAFyYeP_yf9AAYAS4TL5_uP_5SrMRjRY4lM"
-CHAT_ID = "1886501853"
+# Дані для доступу 
+TOKEN = os.getenv("API_TOKEN")
+CHAT_ID = os.getenv("CHAT_ID")
 
 def get_ukr_month_name(month):
     months = {
