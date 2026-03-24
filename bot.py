@@ -1,6 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
+import pytz  # для київського часу
 
 # =================== Налаштування ===================
 TOKEN = "8389604591:AAFv_X9LSdIt7EX-X0CmOiixDYhQN50Tioc"
@@ -23,8 +24,9 @@ def send_message(text):
     requests.post(url, data={"chat_id": CHAT_ID, "text": text})
 
 def get_today_url():
-    """Формує URL новини за сьогоднішньою датою"""
-    today = datetime.now()
+    """Формує URL новини за сьогоднішньою датою (Київський час)"""
+    kyiv_tz = pytz.timezone("Europe/Kiev")
+    today = datetime.now(kyiv_tz)
     day = today.day
     month = MONTHS[today.month]
     year = today.year
@@ -47,7 +49,7 @@ def parse_losses(url):
 
         soup = BeautifulSoup(r.text, "html.parser")
 
-        # Беремо заголовок новини для підтвердження, що це сторінка з втратами
+        # Беремо заголовок новини для підтвердження
         header_tag = soup.find("h1", class_="news-title")
         if not header_tag or "Бойові втрати ворога" not in header_tag.get_text():
             return None
