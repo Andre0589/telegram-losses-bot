@@ -6,7 +6,6 @@ import time
 # =================== Налаштування ===================
 TOKEN = "8389604591:AAFv_X9LSdIt7EX-X0CmOiixDYhQN50Tioc"
 CHAT_ID = "1886501853"
-
 HEADERS = {"User-Agent": "Mozilla/5.0"}
 
 MONTHS = {
@@ -30,7 +29,6 @@ def get_today_url():
     day = today.day
     month = MONTHS[today.month]
     year = today.year
-    # Формуємо URL сторінки за шаблоном сайту МО
     return f"{BASE_URL}/bojovi-vtrati-voroga-na-{day}-{month}-{year}-roku"
 
 def check_news(url):
@@ -42,7 +40,7 @@ def check_news(url):
         return False
 
 def parse_losses(url):
-    """Парсить текст новини з конкретної сторінки"""
+    """Парсить текст новини з сайту МО за сьогоднішню дату"""
     try:
         r = requests.get(url, headers=HEADERS, timeout=10)
         if r.status_code != 200:
@@ -50,26 +48,18 @@ def parse_losses(url):
 
         soup = BeautifulSoup(r.text, "html.parser")
 
-        # Шукаємо заголовок з "Бойові втрати ворога"
-        header_tag = soup.find(lambda tag: tag.name in ["h1", "h2"] and "Бойові втрати ворога" in tag.get_text())
-        if not header_tag:
+        # Беремо заголовок новини для підтвердження, що це сторінка з втратами
+        header_tag = soup.find("h1", class_="news-title")
+        if not header_tag or "Бойові втрати ворога" not in header_tag.get_text():
             return None
 
-        # Беремо текст усіх <p> і <li> після заголовка до наступного <h1>/<h2>
-        result_lines = []
-        for sibling in header_tag.find_next_siblings():
-            if sibling.name in ["h1", "h2"]:
-                break
-            if sibling.name in ["p", "li"]:
-                text = sibling.get_text(strip=True)
-                if text:
-                    result_lines.append(text)
+        # Беремо весь текст новини з блоку <div class="news-detail">
+        article = soup.find("div", class_="news-detail")
+        if not article:
+            return None
 
-        # Якщо нічого не знайшли, пробуємо весь блок статті
-        if not result_lines:
-            article = soup.find("div", class_="news-detail")
-            if article:
-                result_lines = [p.get_text(strip=True) for p in article.find_all(["p", "li"]) if p.get_text(strip=True)]
+        # Збираємо всі абзаци і пункти списків
+        result_lines = [p.get_text(strip=True) for p in article.find_all(["p", "li"]) if p.get_text(strip=True)]
 
         return "\n".join(result_lines) if result_lines else None
 
@@ -90,7 +80,7 @@ def main():
                 print("Новина відправлена у Telegram!")
                 break
             else:
-                print("Сторінка доступна, але не вдалося розпарсити текст. Спробуємо знову через 15 хв.")
+                print("Сторінка доступна, але не вдалося розпарсити текст. Чекаємо 15 хв.")
         else:
             print("Сьогоднішня новина ще не опублікована. Чекаємо 15 хв.")
 
