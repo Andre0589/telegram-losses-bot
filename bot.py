@@ -26,7 +26,8 @@ def get_today_post():
     month = months[today.month]
     year = today.year
 
-    expected = f"bojovi-vtrati-voroga-na-{day}-{month}-{year}"
+    # ✅ ВИПРАВЛЕННЯ №1 (додано -roku)
+    expected = f"bojovi-vtrati-voroga-na-{day}-{month}-{year}-roku"
 
     r = requests.get(BASE_URL)
     soup = BeautifulSoup(r.text, "html.parser")
@@ -50,7 +51,6 @@ def parse_losses(url):
     start = False
 
     for line in lines:
-        # початок блоку
         if "втратила" in line.lower():
             result.append("📊 " + line)
             start = True
@@ -82,6 +82,8 @@ def main():
     if latest:
         text = parse_losses(latest)
         send_message("🔥 Втрати ворога:\n\n" + text)
+    else:
+        send_message("❌ Сьогоднішню новину ще не знайдено")
 
 
 if __name__ == "__main__":
