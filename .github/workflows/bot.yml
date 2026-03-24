@@ -20,4 +20,11 @@ jobs:
 
       - run: pip install -r requirements.txt
 
-      - run: python bot.py
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run bot
+        env:
+          API_TOKEN: ${{ secrets.API_TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
+        run: python bot.py
