@@ -1,7 +1,6 @@
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime
-import pytz  # для київського часу
+from datetime import datetime, timedelta
 
 # =================== Налаштування ===================
 TOKEN = "8389604591:AAFv_X9LSdIt7EX-X0CmOiixDYhQN50Tioc"
@@ -24,9 +23,8 @@ def send_message(text):
     requests.post(url, data={"chat_id": CHAT_ID, "text": text})
 
 def get_today_url():
-    """Формує URL новини за сьогоднішньою датою (Київський час)"""
-    kyiv_tz = pytz.timezone("Europe/Kiev")
-    today = datetime.now(kyiv_tz)
+    """Формує URL новини за сьогоднішньою датою (Київ UTC+2)"""
+    today = datetime.utcnow() + timedelta(hours=2)  # Київський час
     day = today.day
     month = MONTHS[today.month]
     year = today.year
@@ -76,7 +74,7 @@ def main():
     if check_news(url):
         text = parse_losses(url)
         if text:
-            send_message(f"🔥 Втрати ворога на сьогодні ({datetime.now().strftime('%d.%m.%Y')}):\n\n{text}")
+            send_message(f"🔥 Втрати ворога на сьогодні ({(datetime.utcnow() + timedelta(hours=2)).strftime('%d.%m.%Y')}):\n\n{text}")
             print("Новина відправлена у Telegram!")
         else:
             print("Сторінка доступна, але не вдалося розпарсити текст.")
