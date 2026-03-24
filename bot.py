@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 import time
 from datetime import datetime
 import os
+import re
 
 # Ваші дані для доступу
 TOKEN = "8389604591:AAFv_X9LSdIt7EX-X0CmOiixDYhQN50Tioc"
@@ -16,9 +17,8 @@ def get_ukr_month_name(month):
     }
     return months.get(month)
 
-def format_text(text):
-    """Виділяє жирним заголовки розділів згідно зі скріншотом"""
-    # Список фраз для жирного виділення
+def format_text_html(text):
+    """Виділяє заголовки жирним через HTML-теги <b>"""
     keywords = [
         "Особовий склад:", 
         "Бронетехніка і автомобілі:", 
@@ -29,9 +29,9 @@ def format_text(text):
     
     formatted_text = text
     for word in keywords:
-        # Додаємо зірочки для Markdown
-        if word in formatted_text:
-            formatted_text = formatted_text.replace(word, f"**{word}**")
+        # Регістронезалежна заміна на HTML-тег <b>
+        pattern = re.compile(re.escape(word), re.IGNORECASE)
+        formatted_text = pattern.sub(f"<b>{word}</b>", formatted_text)
             
     return formatted_text
 
@@ -42,39 +42,43 @@ def fetch_losses():
     year = now.year
     
     url = f"https://mod.gov.ua/news/bojovi-vtrati-voroga-na-{day}-{month_name}-{year}-roku"
+    print(f"Запит до сайту: {url}")
     
     try:
-        headers = {'User-Agent': 'Mozilla/5.0'}
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
         response = requests.get(url, headers=headers, timeout=15)
         
         if response.status_code == 200:
             soup = BeautifulSoup(response.text, 'html.parser')
-            # Витягуємо текст новини
+            # Витягуємо контент
             content = soup.find('div', class_='news-content') or soup.find('article')
             if content:
                 raw_text = content.get_text(separator='\n', strip=True)
-                # Застосовуємо форматування
-                return format_text(raw_text)
+                return format_text_html(raw_text)
         return None
     except Exception as e:
-        print(f"Помилка: {e}")
+        print(f"Помилка зчитування: {e}")
         return None
 
 def send_telegram(text):
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+    # Використовуємо <b> для головного заголовка
     payload = {
         "chat_id": CHAT_ID,
-        "text": f"📊 *ОФІЦІЙНО: ВТРАТИ ВОРОГА*\n\n{text}",
-        "parse_mode": "Markdown" # Активує жирний шрифт
+        "text": f"<b>📊 ОФІЦІЙНО: ВТРАТИ ВОРОГА</b>\n\n{text}",
+        "parse_mode": "HTML" # Змінено з Markdown на HTML для надійності
     }
     try:
         r = requests.post(url, json=payload)
+        if r.status_code != 200:
+            print(f"Telegram помилка: {r.text}")
         return r.status_code == 200
     except Exception as e:
         print(f"Помилка відправки: {e}")
         return False
 
 def main():
+    print("Бот запущений (HTML mode). Перевіряю новину...")
     max_attempts = 24 
     attempt = 0
     
@@ -83,11 +87,13 @@ def main():
         
         if news_text:
             if send_telegram(news_text):
-                print("Новину відправлено з новим виділенням!")
+                print("Успішно відправлено з HTML-форматуванням!")
                 return 
         
         attempt += 1
-        time.sleep(900)
+        if attempt < max_attempts:
+            print(f"Спроба {attempt}: Новина ще не оновлена. Чекаю 15 хв...")
+            time.sleep(900)
 
 if __name__ == "__main__":
     main()
