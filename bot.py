@@ -1,85 +1,85 @@
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime, timedelta
+import time
+from datetime import datetime
+import os
 
-# =================== Налаштування ===================
+# Ваші актуальні дані для перевірки
 TOKEN = "8389604591:AAFv_X9LSdIt7EX-X0CmOiixDYhQN50Tioc"
 CHAT_ID = "1886501853"
-HEADERS = {"User-Agent": "Mozilla/5.0"}
 
-MONTHS = {
-    1: "sichnya", 2: "lyutogo", 3: "bereznya", 4: "kvitnya",
-    5: "travnya", 6: "chervnya", 7: "lypnya", 8: "serpnya",
-    9: "veresnya", 10: "zhovtnya", 11: "lystopada", 12: "hrudnya"
-}
+def get_ukr_month_name(month):
+    months = {
+        1: "sichnya", 2: "lyutogo", 3: "bereznya", 4: "kvitnya",
+        5: "travnya", 6: "chervnya", 7: "lypnya", 8: "serpnya",
+        9: "veresnya", 10: "zhovtnya", 11: "lystopada", 12: "grudnya"
+    }
+    return months.get(month)
 
-BASE_URL = "https://mod.gov.ua/news"
-
-# =================== Функції ===================
-
-def send_message(text):
-    """Відправка повідомлення в Telegram"""
-    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-    requests.post(url, data={"chat_id": CHAT_ID, "text": text})
-
-def get_today_url():
-    """Формує URL новини за сьогоднішньою датою (Київ UTC+2)"""
-    today = datetime.utcnow() + timedelta(hours=2)  # Київський час
-    day = today.day
-    month = MONTHS[today.month]
-    year = today.year
-    return f"{BASE_URL}/bojovi-vtrati-voroga-na-{day}-{month}-{year}-roku"
-
-def check_news(url):
-    """Перевіряє, чи сторінка існує (HTTP 200)"""
+def fetch_losses():
+    now = datetime.now()
+    day = now.day
+    month_name = get_ukr_month_name(now.month)
+    year = now.year
+    
+    # Формуємо посилання: https://mod.gov.ua/news/bojovi-vtrati-voroga-na-24-bereznya-2026-roku
+    url = f"https://mod.gov.ua/news/bojovi-vtrati-voroga-na-{day}-{month_name}-{year}-roku"
+    print(f"Перевіряю адресу: {url}")
+    
     try:
-        r = requests.get(url, headers=HEADERS, timeout=10)
-        return r.status_code == 200
-    except requests.RequestException:
-        return False
-
-def parse_losses(url):
-    """Парсить текст новини з сайту МО за сьогоднішню дату"""
-    try:
-        r = requests.get(url, headers=HEADERS, timeout=10)
-        if r.status_code != 200:
-            return None
-
-        soup = BeautifulSoup(r.text, "html.parser")
-
-        # Беремо заголовок новини для підтвердження
-        header_tag = soup.find("h1", class_="news-title")
-        if not header_tag or "Бойові втрати ворога" not in header_tag.get_text():
-            return None
-
-        # Беремо весь текст новини з блоку <div class="news-detail">
-        article = soup.find("div", class_="news-detail")
-        if not article:
-            return None
-
-        # Збираємо всі абзаци і пункти списків
-        result_lines = [p.get_text(strip=True) for p in article.find_all(["p", "li"]) if p.get_text(strip=True)]
-
-        return "\n".join(result_lines) if result_lines else None
-
-    except requests.RequestException:
+        # Додаємо User-Agent, щоб сайт не блокував запити від бота
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
+        response = requests.get(url, headers=headers, timeout=15)
+        
+        if response.status_code == 200:
+            soup = BeautifulSoup(response.text, 'html.parser')
+            # Шукаємо статтю або основний блок новин
+            content = soup.find('div', class_='news-content') or soup.find('article')
+            if content:
+                # Очищаємо текст від зайвих пробілів та скриптів
+                return content.get_text(separator='\n', strip=True)
+        return None
+    except Exception as e:
+        print(f"Помилка при запиті до сайту: {e}")
         return None
 
-# =================== Головна функція ===================
+def send_telegram(text):
+    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+    # Обрізаємо текст, якщо він занадто довгий для одного повідомлення Telegram
+    clean_text = text[:4000]
+    payload = {
+        "chat_id": CHAT_ID,
+        "text": f"📊 *ОФІЦІЙНО: ВТРАТИ ВОРОГА*\n\n{clean_text}",
+        "parse_mode": "Markdown"
+    }
+    try:
+        r = requests.post(url, json=payload)
+        return r.status_code == 200
+    except Exception as e:
+        print(f"Помилка відправки в Telegram: {e}")
+        return False
 
 def main():
-    url = get_today_url()
-    print(f"Перевірка новини за URL: {url}")
-
-    if check_news(url):
-        text = parse_losses(url)
-        if text:
-            send_message(f"🔥 Втрати ворога на сьогодні ({(datetime.utcnow() + timedelta(hours=2)).strftime('%d.%m.%Y')}):\n\n{text}")
-            print("Новина відправлена у Telegram!")
-        else:
-            print("Сторінка доступна, але не вдалося розпарсити текст.")
-    else:
-        print("Сьогоднішня новина ще не опублікована.")
+    print("Бот запущений. Очікую публікацію новини...")
+    
+    # Спроби: кожні 15 хвилин протягом 6 годин (24 спроби)
+    max_attempts = 24 
+    attempt = 0
+    
+    while attempt < max_attempts:
+        news_text = fetch_losses()
+        
+        if news_text:
+            if send_telegram(news_text):
+                print("Успіх! Новину відправлено.")
+                return # Завершуємо роботу до наступного дня
+            else:
+                print("Помилка відправки в Telegram, спробую знову через 15 хв.")
+        
+        attempt += 1
+        if attempt < max_attempts:
+            print(f"Спроба {attempt}: Новини ще немає. Наступна перевірка через 15 хвилин...")
+            time.sleep(900) # 15 хвилин
 
 if __name__ == "__main__":
     main()
