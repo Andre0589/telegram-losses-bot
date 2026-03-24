@@ -1,6 +1,6 @@
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime
+import re
 
 TOKEN = "8389604591:AAFv_X9LSdIt7EX-X0CmOiixDYhQN50Tioc"
 CHAT_ID = "1886501853"
@@ -15,36 +15,12 @@ def send_message(text):
 
 def get_today_post():
     r = requests.get(BASE_URL)
-    soup = BeautifulSoup(r.text, "html.parser")
+    html = r.text
 
-    for link in soup.find_all("a"):
-        href = link.get("href", "")
-        if "bojovi-vtrati-voroga" in href:
-            return "https://mod.gov.ua" + href
+    matches = re.findall(r'/news/bojovi-vtrati-voroga[^"]+', html)
 
-    return None
-    today = datetime.now()
-
-    months = {
-        1: "sichnya", 2: "lyutogo", 3: "bereznya", 4: "kvitnya",
-        5: "travnya", 6: "chervnya", 7: "lypnya", 8: "serpnya",
-        9: "veresnya", 10: "zhovtnya", 11: "lystopada", 12: "hrudnya"
-    }
-
-    day = today.day
-    month = months[today.month]
-    year = today.year
-
-    # ✅ ВИПРАВЛЕННЯ №1 (додано -roku)
-    expected = f"bojovi-vtrati-voroga-na-{day}-{month}-{year}-roku"
-
-    r = requests.get(BASE_URL)
-    soup = BeautifulSoup(r.text, "html.parser")
-
-    for link in soup.find_all("a"):
-        href = link.get("href", "")
-        if expected in href:
-            return "https://mod.gov.ua" + href
+    if matches:
+        return "https://mod.gov.ua" + matches[0]
 
     return None
 
@@ -92,7 +68,7 @@ def main():
         text = parse_losses(latest)
         send_message("🔥 Втрати ворога:\n\n" + text)
     else:
-        send_message("❌ Сьогоднішню новину ще не знайдено")
+        send_message("❌ Новину не знайдено")
 
 
 if __name__ == "__main__":
