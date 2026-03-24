@@ -3,7 +3,6 @@ from bs4 import BeautifulSoup
 import time
 from datetime import datetime
 import os
-import re
 
 # Ваші дані для доступу
 TOKEN = "8389604591:AAFv_X9LSdIt7EX-X0CmOiixDYhQN50Tioc"
@@ -17,32 +16,15 @@ def get_ukr_month_name(month):
     }
     return months.get(month)
 
-def format_text_html(text):
-    """Робить заголовки ЖИРНИМИ ТА ПРОПИСНИМИ"""
-    keywords = [
-        "Особовий склад:", 
-        "Бронетехніка і автомобілі:", 
-        "Артилерія і ППО:", 
-        "Повітряні цілі:", 
-        "Флот:"
-    ]
-    
-    formatted_text = text
-    for word in keywords:
-        # Шукаємо слово в будь-якому регістрі та замінюємо на ВЕЛИКІ ЛІТЕРИ + жирний
-        pattern = re.compile(re.escape(word), re.IGNORECASE)
-        replacement = f"<b>{word.upper()}</b>"
-        formatted_text = pattern.sub(replacement, formatted_text)
-            
-    return formatted_text
-
-def fetch_losses():
+def fetch_image_url():
     now = datetime.now()
     day = now.day
     month_name = get_ukr_month_name(now.month)
     year = now.year
     
+    # Формуємо URL новини
     url = f"https://mod.gov.ua/news/bojovi-vtrati-voroga-na-{day}-{month_name}-{year}-roku"
+    print(f"Шукаю картинку на: {url}")
     
     try:
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
@@ -50,44 +32,53 @@ def fetch_losses():
         
         if response.status_code == 200:
             soup = BeautifulSoup(response.text, 'html.parser')
-            content = soup.find('div', class_='news-content') or soup.find('article')
-            if content:
-                raw_text = content.get_text(separator='\n', strip=True)
-                return format_text_html(raw_text)
+            # Шукаємо блок новини, де зазвичай лежить інфографіка
+            content_div = soup.find('div', class_='news-content') or soup.find('article')
+            
+            if content_div:
+                img_tag = content_div.find('img')
+                if img_tag and img_tag.get('src'):
+                    image_url = img_tag.get('src')
+                    # Перетворюємо відносне посилання на повне
+                    if not image_url.startswith('http'):
+                        image_url = "https://mod.gov.ua" + image_url
+                    return image_url
         return None
     except Exception as e:
-        print(f"Помилка: {e}")
+        print(f"Помилка при пошуку фото: {e}")
         return None
 
-def send_telegram(text):
-    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+def send_photo_only(image_url):
+    url = f"https://api.telegram.org/bot{TOKEN}/sendPhoto"
     payload = {
         "chat_id": CHAT_ID,
-        "text": f"<b>📊 ОФІЦІЙНО: ВТРАТИ ВОРОГА</b>\n\n{text}",
-        "parse_mode": "HTML" # Використовуємо HTML для надійності
+        "photo": image_url,
+        "caption": "📊 Офіційна інфографіка втрат ворога"
     }
     try:
         r = requests.post(url, json=payload)
         return r.status_code == 200
     except Exception as e:
-        print(f"Помилка відправки: {e}")
+        print(f"Помилка відправки в Telegram: {e}")
         return False
 
 def main():
-    print("Бот запущений (UPPERCASE mode). Перевіряю...")
+    print("Бот запущений (Тільки Фото). Очікую новину...")
     max_attempts = 24 
     attempt = 0
     
     while attempt < max_attempts:
-        news_text = fetch_losses()
+        image_url = fetch_image_url()
         
-        if news_text:
-            if send_telegram(news_text):
-                print("Готово! Повідомлення надіслано з новим стилем.")
+        if image_url:
+            if send_photo_only(image_url):
+                print("Фото успішно надіслано!")
                 return 
         
         attempt += 1
-        time.sleep(900)
+        if attempt < max_attempts:
+            print(f"Спроба {attempt}: Картинки ще немає. Чекаю 15 хв...")
+            time.sleep(900)
 
 if __name__ == "__main__":
     main()
