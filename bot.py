@@ -25,12 +25,14 @@ def get_latest_losses_url():
 
     soup = BeautifulSoup(r.text, "html.parser")
 
-    for a in soup.find_all("a", href=True):
-        href = a["href"]
-
-        if "vtrati-voroga" in href:
-            print("Знайдено новину:", href)
-            return href
+    # шукаємо всі блоки з класом, який містить заголовки новин
+    for article in soup.find_all("article"):
+        a_tag = article.find("a")
+        if a_tag and "втрати" in a_tag.get_text().lower():
+            href = a_tag.get("href")
+            full_url = href if href.startswith("http") else "https://mod.gov.ua" + href
+            print("Знайдено новину:", full_url)
+            return full_url
 
     print("Новину не знайдено на сторінці")
     return None
@@ -38,7 +40,6 @@ def get_latest_losses_url():
 
 def parse_losses(url):
     r = requests.get(url, headers=HEADERS)
-
     if r.status_code != 200:
         print("Помилка відкриття новини")
         return None
