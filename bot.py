@@ -1,4 +1,4 @@
-import requests
+            import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
 
@@ -17,69 +17,52 @@ MONTHS = {
 # =================== Функції ===================
 
 def send_message(text):
+    """Відправка повідомлення в Telegram"""
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
     requests.post(url, data={"chat_id": CHAT_ID, "text": text})
 
-
 def get_today_url():
+    """Формує URL новини за сьогоднішньою датою"""
     today = datetime.now()
     day = today.day
     month = MONTHS[today.month]
     year = today.year
     return f"https://mod.gov.ua/news/bojovi-vtrati-voroga-na-{day}-{month}-{year}-roku"
 
-
 def check_news(url):
+    """Перевіряє, чи сторінка існує (HTTP 200)"""
     r = requests.get(url, headers=HEADERS)
     return r.status_code == 200
 
-
 def parse_losses(url):
+    """Парсить текст новини з конкретної сторінки"""
     r = requests.get(url, headers=HEADERS)
     if r.status_code != 200:
         return None
 
     soup = BeautifulSoup(r.text, "html.parser")
-    text = soup.get_text("\n")
-    lines = [line.strip() for line in text.split("\n") if line.strip()]
 
-    # Пошук заголовка конкретної новини
+    # Шукаємо заголовок новини
     today = datetime.now()
     day = today.day
     month_name = MONTHS[today.month]
     year = today.year
-    TARGET_HEADER = f"Бойові втрати ворога на {day} {month_name} {year} року".lower()
+    target_header = f"Бойові втрати ворога на {day} {month_name} {year} року"
 
-    result = []
-    start = False
+    header_tag = soup.find(lambda tag: tag.name in ["h1", "h2"] and target_header in tag.get_text())
+    if not header_tag:
+        return None
 
-    for line in lines:
-        lower = line.lower()
-        if TARGET_HEADER in lower:
-            start = True
-            continue
-
-        if start:
-            # Збираємо рядки, які містять втрати
-            clean = line.replace("–", "-").replace("—", "-").replace("−", "-")
-            if "-" in clean:
-                parts = clean.split("-")
-                if len(parts) >= 2:
-                    name = parts[0].strip()
-                    value = parts[1].strip()
-                    if "(+0)" in value:
-                        value = value.replace("(+0)", "").strip()
-                    result.append(f"• {name} — {value}")
-            else:
-                # Додаємо рядки тексту, якщо це не таблиця
-                if len(line) > 5:
-                    result.append(line)
-
-        if len(result) >= 20:
+    # Беремо всі наступні теги <p> і <ul><li> після заголовка до наступного заголовка
+    result_lines = []
+    for sibling in header_tag.find_next_siblings():
+        if sibling.name in ["h1", "h2"]:
             break
+        text = sibling.get_text(strip=True)
+        if text:
+            result_lines.append(text)
 
-    return "\n".join(result)
-
+    return "\n".join(result_lines)
 
 # =================== Головна функція ===================
 
@@ -90,10 +73,9 @@ def main():
         if text:
             send_message("🔥 Втрати ворога:\n\n" + text)
         else:
-            send_message("❌ Новина з’явилась, але не вдалося розпарсити втрати")
+            send_message("❌ Не вдалося розпарсити текст новини")
     else:
         send_message("❌ Сьогоднішня новина ще не опублікована")
-
 
 if __name__ == "__main__":
     main()
