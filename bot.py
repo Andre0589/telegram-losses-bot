@@ -14,6 +14,15 @@ def send_message(text):
 
 
 def get_today_post():
+    r = requests.get(BASE_URL)
+    soup = BeautifulSoup(r.text, "html.parser")
+
+    for link in soup.find_all("a"):
+        href = link.get("href", "")
+        if "bojovi-vtrati-voroga" in href:
+            return "https://mod.gov.ua" + href
+
+    return None
     today = datetime.now()
 
     months = {
