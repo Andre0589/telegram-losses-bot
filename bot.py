@@ -8,7 +8,6 @@ CHAT_ID = "1886501853"
 
 HEADERS = {"User-Agent": "Mozilla/5.0"}
 
-# Українські назви місяців для URL
 MONTHS = {
     1: "sichnya", 2: "lyutogo", 3: "bereznya", 4: "kvitnya",
     5: "travnya", 6: "chervnya", 7: "lypnya", 8: "serpnya",
@@ -18,13 +17,11 @@ MONTHS = {
 # =================== Функції ===================
 
 def send_message(text):
-    """Відправка повідомлення в Telegram"""
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
     requests.post(url, data={"chat_id": CHAT_ID, "text": text})
 
 
 def get_today_url():
-    """Формує URL новини за сьогоднішньою датою"""
     today = datetime.now()
     day = today.day
     month = MONTHS[today.month]
@@ -33,13 +30,11 @@ def get_today_url():
 
 
 def check_news(url):
-    """Перевіряє, чи сторінка існує (HTTP 200)"""
     r = requests.get(url, headers=HEADERS)
     return r.status_code == 200
 
 
 def parse_losses(url):
-    """Парсить текст новини та форматує втрати"""
     r = requests.get(url, headers=HEADERS)
     if r.status_code != 200:
         return None
@@ -48,18 +43,24 @@ def parse_losses(url):
     text = soup.get_text("\n")
     lines = [line.strip() for line in text.split("\n") if line.strip()]
 
+    # Пошук заголовка конкретної новини
+    today = datetime.now()
+    day = today.day
+    month_name = MONTHS[today.month]
+    year = today.year
+    TARGET_HEADER = f"Бойові втрати ворога на {day} {month_name} {year} року".lower()
+
     result = []
     start = False
 
     for line in lines:
         lower = line.lower()
-
-        if "втрат" in lower:
-            result.append("📊 " + line)
+        if TARGET_HEADER in lower:
             start = True
             continue
 
         if start:
+            # Збираємо рядки, які містять втрати
             clean = line.replace("–", "-").replace("—", "-").replace("−", "-")
             if "-" in clean:
                 parts = clean.split("-")
@@ -69,11 +70,16 @@ def parse_losses(url):
                     if "(+0)" in value:
                         value = value.replace("(+0)", "").strip()
                     result.append(f"• {name} — {value}")
+            else:
+                # Додаємо рядки тексту, якщо це не таблиця
+                if len(line) > 5:
+                    result.append(line)
 
         if len(result) >= 20:
             break
 
     return "\n".join(result)
+
 
 # =================== Головна функція ===================
 
