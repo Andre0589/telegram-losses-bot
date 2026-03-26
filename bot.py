@@ -1,12 +1,13 @@
 import requests
 from bs4 import BeautifulSoup
-import time
-from datetime import datetime
 import os
+import sys
+from datetime import datetime
 
 # Дані для доступу 
 TOKEN = os.getenv("API_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
+HISTORY_FILE = "last_news.txt"
 
 def get_ukr_month_name(month):
     months = {
@@ -22,9 +23,8 @@ def fetch_image_url():
     month_name = get_ukr_month_name(now.month)
     year = now.year
     
-    # Формуємо URL новини
     url = f"https://mod.gov.ua/news/bojovi-vtrati-voroga-na-{day}-{month_name}-{year}-roku"
-    print(f"Шукаю картинку на: {url}")
+    print(f"Перевіряю сайт: {url}")
     
     try:
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
@@ -32,14 +32,12 @@ def fetch_image_url():
         
         if response.status_code == 200:
             soup = BeautifulSoup(response.text, 'html.parser')
-            # Шукаємо блок новини, де зазвичай лежить інфографіка
             content_div = soup.find('div', class_='news-content') or soup.find('article')
             
             if content_div:
                 img_tag = content_div.find('img')
                 if img_tag and img_tag.get('src'):
                     image_url = img_tag.get('src')
-                    # Перетворюємо відносне посилання на повне
                     if not image_url.startswith('http'):
                         image_url = "https://mod.gov.ua" + image_url
                     return image_url
@@ -49,11 +47,15 @@ def fetch_image_url():
         return None
 
 def send_photo_only(image_url):
+    now = datetime.now().strftime("%d.%m.%Y")
     url = f"https://api.telegram.org/bot{TOKEN}/sendPhoto"
+    # Оновлений текст підпису з датою
+    caption_text = f"📊 Офіційна інфографіка втрат ворога на {now}"
+    
     payload = {
         "chat_id": CHAT_ID,
         "photo": image_url,
-        "caption": "📊 Офіційна інфографіка втрат ворога"
+        "caption": caption_text
     }
     try:
         r = requests.post(url, json=payload)
@@ -63,22 +65,27 @@ def send_photo_only(image_url):
         return False
 
 def main():
-    print("Бот запущений (Тільки Фото). Очікую новину...")
-    max_attempts = 24 
-    attempt = 0
+    today = datetime.now().date().isoformat()
+
+    # Перевірка: чи не надсилали ми вже сьогодні?
+    if os.path.exists(HISTORY_FILE):
+        with open(HISTORY_FILE, "r") as f:
+            if f.read().strip() == today:
+                print(f"Сьогодні ({today}) новина вже була надіслана. Вихід.")
+                return
+
+    image_url = fetch_image_url()
     
-    while attempt < max_attempts:
-        image_url = fetch_image_url()
-        
-        if image_url:
-            if send_photo_only(image_url):
-                print("Фото успішно надіслано!")
-                return 
-        
-        attempt += 1
-        if attempt < max_attempts:
-            print(f"Спроба {attempt}: Картинки ще немає. Чекаю 15 хв...")
-            time.sleep(900)
+    if image_url:
+        if send_photo_only(image_url):
+            print("Фото успішно надіслано!")
+            # Записуємо дату успішної відправки
+            with open(HISTORY_FILE, "w") as f:
+                f.write(today)
+        else:
+            print("Помилка відправки фото.")
+    else:
+        print("Картинки ще немає на сайті. Спробуємо пізніше.")
 
 if __name__ == "__main__":
     main()
