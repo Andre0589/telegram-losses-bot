@@ -1,14 +1,10 @@
-name: Run Telegram Bot
+name: Run Archive Collector
 
 on:
   push:
     branches: [ "main" ]
   workflow_dispatch:
-  schedule:
-    # 02:00 UTC = 05:00 за Києвом (літній час, який почнеться за кілька днів)
-    # 03:00 UTC = 05:00 за Києвом (зимовий час)
-    # Поставимо з 02:00 до 10:00 UTC, щоб точно покрити ранок
-    - cron: "*/15 2-10 * * *"
+  # schedule тимчасово вимкнено для архіву, щоб не було повторів
 
 permissions:
   contents: write
@@ -25,13 +21,15 @@ jobs:
           python-version: "3.10"
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          pip install requests beautifulsoup4
+          # якщо у вас є requirements.txt, можна залишити pip install -r requirements.txt
 
-      - name: Run bot
+      - name: Run Archive Script
         env:
           API_TOKEN: ${{ secrets.API_TOKEN }}
           CHAT_ID: ${{ secrets.CHAT_ID }}
-        run: python bot.py
+        run: python archive.py
 
       - name: Save memory
         run: |
@@ -39,6 +37,6 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           if [ -f last_news.txt ]; then
             git add last_news.txt
-            git commit -m "Оновлено дату відправки" || echo "Змін немає"
+            git commit -m "Оновлено дату після архіву" || echo "Змін немає"
             git push
           fi
