@@ -11,7 +11,7 @@ HISTORY_FILE = "last_news.txt"
 
 def get_ukr_month_name(month):
     months = {
-        1: "sichnya", 2: "lyutogo", 3: "bereznya", 4: "kvitnya",
+        1: "sichnya", 2: "lyutogo", 3: "bereznya", 4: "kvitnia",
         5: "travnya", 6: "chervnya", 7: "lypnya", 8: "serpnya",
         9: "veresnya", 10: "zhovtnya", 11: "lystopada", 12: "grudnya"
     }
