@@ -9,20 +9,23 @@ CHAT_ID = os.getenv("CHAT_ID")
 HISTORY_FILE = "last_news.txt"
 
 def get_month_variants(month_num):
-    """Повертає список можливих варіантів написання місяця латиницею"""
+    """
+    Повертає ВСІ можливі варіанти написання місяців.
+    Сюди додано офіційну транслітерацію + пряме копіювання українських слів латиницею (як робить Міноборони).
+    """
     variants = {
-        1: ["sichnia", "sichnya"],
-        2: ["liutoho", "lyutogo"],
-        3: ["bereznia", "bereznya"],
-        4: ["kvitnia", "kvitnya"],
-        5: ["travnia", "travnya"],
-        6: ["chervnia", "chervnya"],
-        7: ["lypnia", "lypnya"],
-        8: ["serpnia", "serpnya"],
-        9: ["veresnia", "veresnya"],
-        10: ["zhovtnia", "zhovtnya"],
-        11: ["lystopada"],
-        12: ["hrudnia", "grudnya"]
+        1: ["sichnia", "sichnya", "sichna"],
+        2: ["liutoho", "lyutogo", "lyutogo"],
+        3: ["bereznia", "bereznya", "bereznya"],
+        4: ["kvitnia", "kvitnya", "kvitnya"],
+        5: ["travnia", "travnya", "travnya"],
+        6: ["chervnia", "chervnya", "chervnya"],
+        7: ["lypnia", "lypnya", "lipnya", "lypna"],  # Додано "lipnya" для липня!
+        8: ["serpnia", "serpnya", "serpnya"],
+        9: ["veresnia", "veresnya", "veresnya"],
+        10: ["zhovtnia", "zhovtnya", "zhovtnya"],
+        11: ["lystopada", "listopada"],
+        12: ["hrudnia", "grudnya", "grudnya"]
     }
     return variants.get(month_num, [])
 
@@ -31,16 +34,17 @@ def fetch_image_url():
     day = now.day
     year = now.year
     
-    # Варіанти написання основної частини посилання
+    # Всі варіанти написання головного тексту (і старі, і нові на випередження)
     slug_variants = [
-        "boiovi-vtraty-voroha",  # Новий варіант (квітень 2026)
-        "bojovi-vtrati-voroga"   # Старий варіант
+        "bojovi-vtrati-voroga",  # Поточний липневий варіант (старий-новий)
+        "boiovi-vtraty-voroha",  # Весняний варіант
+        "vtraty-voroha"          # Про всяк випадок короткий
     ]
     
     month_variants = get_month_variants(now.month)
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
 
-    # Перебираємо всі комбінації
+    # Перебираємо всі комбінації slug + місяць
     for slug in slug_variants:
         for m_name in month_variants:
             url = f"https://mod.gov.ua/news/{slug}-na-{day}-{m_name}-{year}-roku"
